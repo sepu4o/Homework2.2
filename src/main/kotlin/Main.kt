@@ -11,6 +11,7 @@ data class Post(
     val canPin: Boolean = true,
     val canDelete: Boolean = true,
     val comments: Comments = Comments(),
+    val attachment: Array<Attachment>? = null
 )
 
 data class Comments(
