@@ -11,6 +11,7 @@ data class Post(
     val canPin: Boolean = true,
     val canDelete: Boolean = true,
     val comments: Comments = Comments(),
+    val attachments: Array<Attachment>? = null
 )
 
 data class Comments(
@@ -55,4 +56,15 @@ object WallService {
 
 fun main() {
     println("Работу выполнил Евстропов Александр")
+    val postWithAttachments = Post(
+        text = "Коты",
+        attachments = arrayOf(
+            Attachment.PhotoAttachment(Photo(1, 123, "Маленький кот", "Большой кот"))
+        )
+    )
+    WallService.add(postWithAttachments)
+
+    postWithAttachments.attachments?.forEach { attachment ->
+        println(getAttachmentInfo(attachment))
+    }
 }
