@@ -34,4 +34,36 @@ class WallServiceTest {
         val result = WallService.update(nonExistingPost)
         assertFalse(result)
     }
+
+    @Test
+    fun createCommentCheck() {
+        val post = WallService.add(Post(text = "Новый текст"))
+        val newComment = Comment(text = "Новый комментарий")
+        val result = WallService.createComment(postId = post.id!!, newComment)
+        assertEquals(1, result.cid)
+    }
+
+    @Test(expected = PostNotFoundException::class)
+    fun shouldThrow() {
+        val comment = Comment(text = "Новый комментарий")
+        WallService.createComment(568, comment)
+    }
+
+    @Test
+    fun reportCommentSuccess() {
+        val post = WallService.add(Post(text = "Пост"))
+        val comment = WallService.createComment(post.id!!, Comment(text = "Комментарий"))
+        val result = WallService.reportComment(
+            ownerId = 123,
+            commentId = comment.cid!!,
+            reason = ReportReason.SPAM
+        )
+        assertEquals(1, result)
+    }
+
+    @Test(expected = CommentNotFoundException::class)
+    fun checkingException() {
+        val badComment = Comment(text = "Новый комментарий")
+        WallService.reportComment(256, 4, reason = ReportReason.SPAM)
+    }
 }
