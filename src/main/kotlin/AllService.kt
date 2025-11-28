@@ -1,0 +1,191 @@
+package ru.netology
+
+object WallService {
+    private var posts = emptyArray<Post>()
+    private var nextId = 1
+    private var comments = emptyArray<Comment>()
+    private var nextCommentId = 1
+    private var commentReports = mutableListOf<CommentReport>()
+
+
+    fun add(post: Post): Post {
+        val newPost = post.copy(id = nextId++)
+        posts += newPost
+        return newPost
+    }
+
+    fun update(post: Post): Boolean {
+        for ((index, existingPost) in posts.withIndex()) {
+            if (existingPost.id != null && post.id != null && existingPost.id == post.id) {
+                posts[index] = post.copy(id = existingPost.id)
+                return true
+            }
+        }
+        return false
+    }
+
+    fun createComment(postId: Int, comment: Comment): Comment {
+        for (i in posts.indices) {
+            if (posts[i].id == postId) {
+                val newComment = comment.copy(cid = nextCommentId++)
+                comments = comments.plus(newComment)
+                return newComment
+            }
+        }
+        throw PostNotFoundException("Пост c id $postId не найден")
+    }
+
+    fun reportComment(ownerId: Int, commentId: Int, reason: ReportReason): Int {
+        val commentExists = comments.any { it.cid == commentId }
+        if (!commentExists) {
+            throw CommentNotFoundException("Комментарий с id $commentId не найден")
+        }
+        val report = CommentReport(ownerId, commentId, reason)
+        commentReports.add(report)
+        return 1
+    }
+
+    fun getPosts(): Array<Post> {
+        return posts.copyOf()
+    }
+
+    fun clear() {
+        posts = emptyArray()
+        comments = emptyArray()
+        commentReports.clear()
+        nextId = 1
+
+    }
+}
+
+class BaseService<T> {
+    private val items = mutableListOf<T>()
+
+    fun add(item: T): T {
+        items.add(item)
+        return item
+    }
+
+    fun removeIf(predicate: (T) -> Boolean): Boolean {
+        return items.removeIf(predicate)
+    }
+
+    fun find(predicate: (T) -> Boolean): T? {
+        return items.find(predicate)
+    }
+
+    fun update(predicate: (T) -> Boolean, updateFn: (T) -> T): Boolean {
+        val index = items.indexOfFirst(predicate)
+        if (index != -1) {
+            items[index] = updateFn(items[index])
+            return true
+        }
+        return false
+    }
+
+    fun getAll(): List<T> = items.toList()
+
+    fun clear() = items.clear()
+}
+
+object NoteService {
+    private var nextCommentId = 1
+    private var nextNoteId = 1
+    private val noteService = BaseService<Note>()
+    private val commentService = BaseService<NoteComment>()
+
+
+    // создает новую заметку у текущего пользователя
+    fun addNote(note: Note): Note {
+        val newNote = note.copy(id = nextNoteId++)
+        return noteService.add(newNote)
+    }
+
+    // добавляет новый комментарий к заметке
+    fun createCommentNote(noteId: Int, noteComment: NoteComment): NoteComment {
+        val note = noteService.getAll().find { it.id == noteId }
+        if (note != null) {
+            val newNoteComment = noteComment.copy(commentId = nextCommentId++, noteId = noteId)
+            return commentService.add(newNoteComment)
+        }
+        throw NoteNotFoundException("Заметка с таким id $noteId не найдена")
+    }
+
+    // Удаляет заметку текущего пользователя
+    fun delete(id: Int): Boolean {
+        val note = noteService.find { it.id == id }
+        if (note == null) {
+            throw NoteNotFoundException("Заметка с таким id $id не найдена")
+        }
+        noteService.removeIf { it.id == id }
+        commentService.removeIf { it.noteId == id }
+        return true
+
+    }
+
+    // Удаляет комментарий к заметке
+    fun deleteComment(commentId: Int): Boolean {
+        val comment = commentService.find { it.commentId == commentId }
+            ?: throw CommentNotFoundException("Комментарий с таким id $commentId не найден")
+        if (comment.isDeleted) {
+            throw CommentAlreadyDeletedException("Комментарий уже удален")
+        }
+        comment.isDeleted = true // помечаем как удалённый
+        return true
+    }
+
+    //восстанавливает удаленный комментарий
+    fun restoreComment(commentId: Int): Boolean {
+        val comment = commentService.find { it.commentId == commentId }
+            ?: throw CommentNotFoundException("Комментарий с таким id $commentId не найден")
+        if (comment.isDeleted) {
+            comment.isDeleted = false
+            return true
+        }
+        return false
+    }
+
+    // Возвращает список заметок, созданных пользователем
+    fun getNotes(ownerId: Int): List<Note> {
+        val userNote = noteService.getAll().filter { it.ownerId == ownerId }
+        if (userNote.isEmpty()) {
+            throw NoteNotFoundException("У пользователя $ownerId нет заметок")
+        }
+        return userNote
+    }
+
+    //возвращает заметку по ее ID
+    fun getByID(id: Int): Note {
+        return noteService.find { it.id == id }
+            ?: throw NoteNotFoundException("Заметка с id $id не найдена")
+    }
+
+    //возвращает список комментариев к заметке
+    fun getComments(noteId: Int): List<NoteComment> {
+        return commentService.getAll().filter { it.noteId == noteId && !it.isDeleted }
+            .ifEmpty { throw CommentNotFoundException("У заметке с id $noteId нет комментариев") }
+    }
+
+    //редактирует заметку текущего пользователя
+    fun edit(id: Int, newTitle: String, newText: String): Boolean {
+        return noteService.update(
+            predicate = { it.id == id },
+            updateFn = { it.copy(title = newTitle, text = newText) }
+        )
+    }
+
+    // редактирует комментарий к заметке
+    fun editComment(commentId: Int, newText: String): Boolean {
+        return commentService.update(
+            predicate = { it.commentId == commentId && !it.isDeleted },
+            updateFn = { it.copy(text = newText) }
+        )
+    }
+
+    fun clear() {
+        noteService.clear()
+        commentService.clear()
+        nextNoteId = 1
+        nextCommentId = 1
+    }
+}
