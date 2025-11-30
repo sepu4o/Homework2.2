@@ -189,3 +189,149 @@ object NoteService {
         nextCommentId = 1
     }
 }
+
+//Контекст	          Имя поля / аргумента	        Описание
+// User	                      id	            Уникальный идентификатор пользователя
+// Chat	                      id	            Уникальный идентификатор чата
+// Message	                  id	            Уникальный идентификатор сообщения
+// Поле внутри Chat	        ownerId	            ID владельца аккаунта
+// Поле внутри Chat	       companionId	        ID собеседника
+// Поле внутри Message	     chatId	            ID чата, куда входит сообщение
+// Поле внутри Message	    authorId	        ID автора сообщения
+// Аргумент метода	      companionUserId	    ID пользователя-собеседника (для поиска чата)
+// Аргумент метода	        toUserId	        ID пользователя, которому отправляем сообщение
+// Аргумент метода	        messageId	        ID сообщения для операций (удалить, редактировать)
+// Аргумент метода	          chatId	        ID чата для операций (удалить чат)
+
+// userId - это ID пользователя, для которого мы хотим получить чаты
+object ChatService {
+
+    private var chats = mutableListOf<Chat>()
+    private var messages = mutableListOf<Message>()
+    private var nextChatId = 1
+    private var nextMessageId = 1
+    private fun generateChatId(): Int = nextChatId++
+    private fun generateMessageId(): Int = nextMessageId++
+
+
+    // удалить чат
+    fun deleteChat(chatId: Int): Boolean {
+        val chat = chats.find { it.id == chatId }
+            ?: throw ChatNotFoundException("Чат с id $chatId не найден")
+        chat.isDeleted = true
+        messages.forEach {
+            if (it.chatId == chat.id) it.isDeleted = true
+        }
+        return true
+
+    }
+
+    // получать список имеющихся чатов
+    fun getChats(userId: Int): List<Chat> {
+        return chats.getActiveChats().filter {
+            it.ownerId == userId || it.companionId == userId
+        }
+
+    }
+
+    //Получить список последних сообщений из чата
+    fun getLastMessagesFromUserChats(userId: Int): List<String> {
+        return chats.getActiveChats()
+            .filter { it.ownerId == userId || it.companionId == userId }
+            .map { chat ->
+                val lastMessage = messages.getActiveMessages()
+                    .filter { it.chatId == chat.id }
+                    .maxByOrNull { it.id }
+                lastMessage?.text ?: "нет сообщений"
+            }
+    }
+
+    //Получить список сообщений из чата, указав:ID собеседника
+    fun getListMessagesIdUser(companionUserId: Int, currentUserId: Int, count: Int): List<Message> {
+        val chat = chats.getActiveChats()
+            .find {
+                it.ownerId == currentUserId && it.companionId == companionUserId ||
+                        it.ownerId == companionUserId && it.companionId == currentUserId
+            }
+
+        if (chat != null) {
+            val chatMessages = messages.getActiveMessages().filter { it.chatId == chat.id }.take(count)
+            chatMessages.forEach { it.isRead = true }
+            return chatMessages
+        }
+        return listOf()
+    }
+
+    //Создать новое сообщение
+    fun createMessage(fromUserId: Int, toUserId: Int, text: String): Message {
+        val chat = getOrCreateChat(fromUserId, toUserId)
+        val message = Message(
+            id = generateMessageId(),
+            chatId = chat.id,
+            authorId = fromUserId,
+            text = text,
+            isRead = false
+        )
+        messages.add(message)
+        return message
+    }
+
+    //редактировать сообщение
+    fun editMessage(messageId: Int, newText: String): Boolean {
+        val message = messages.getActiveMessages().find { it.id == messageId }
+        if (message == null) {
+            throw MessageNotFoundException("Сообщение с таким id $messageId не найдено")
+        }
+        message.text = newText
+
+        return true
+    }
+
+    //удалить сообщение
+    fun deleteMessage(messageId: Int): Boolean {
+        val message = messages.getActiveMessages().find { it.id == messageId }
+        if (message == null) {
+            throw MessageNotFoundException("Сообщение с таким id $messageId не найдено")
+        }
+        message.isDeleted = true
+        return true
+    }
+
+    //найди или создай чат
+    private fun getOrCreateChat(userId1: Int, userId2: Int): Chat {
+        val existingChat = chats.getActiveChats().find {
+            it.ownerId == userId1 && it.companionId == userId2 ||
+                    it.ownerId == userId2 && it.companionId == userId1
+        }
+        return existingChat ?: createNewChat(userId1, userId2)
+    }
+
+    // создает новый чат
+    private fun createNewChat(ownerId: Int, companionId: Int): Chat {
+        val newChat = Chat(
+            id = generateChatId(),
+            ownerId = ownerId,
+            companionId = companionId
+        )
+        chats.add(newChat)
+        return newChat
+    }
+
+    // функция для получения активных чатов
+    fun List<Chat>.getActiveChats(): List<Chat> {
+        return this.filter { !it.isDeleted }
+    }
+
+    // функция для получения активных сообщений
+    fun List<Message>.getActiveMessages(): List<Message> {
+        return this.filter { !it.isDeleted }
+    }
+
+    fun clear() {
+        chats.clear()
+        messages.clear()
+
+    }
+}
+
+

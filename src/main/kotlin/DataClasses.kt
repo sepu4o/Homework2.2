@@ -59,7 +59,32 @@ enum class ReportReason(val code: Int) {
     SUICIDE_CALLS(7)
 }
 
+data class User(
+    val id: Int = 0,   // — уникальный идентификатор.
+    val name: String = "",  // имя/никнейм.
+)
+
+data class Chat(
+    val id: Int = 0,    //— уникальный идентификатор.
+    val ownerId: Int = 0,   // — ID пользователя, которому принадлежит этот чат (владелец аккаунта)
+    val companionId: Int = 0,    // — ID собеседника.
+    var isDeleted: Boolean = false // — по аналогии с сообщением, помечаем чат удалённым.
+)
+
+data class Message(
+
+    val id: Int = 0, // — уникальный идентификатор.
+    val chatId: Int = 0, // — ID чата, в котором находится это сообщение. Это ключевое поле для связи!
+    val fromUserId: Int = 0, // — ID пользователя, который отправил сообщение.
+    var text: String = "",// — текст сообщения.
+    var isDeleted: Boolean = false, // — флаг, помечен ли объект как удалённый.
+    var isRead: Boolean = false, // — прочитано ли сообщение.
+    val authorId: Int = 0  // - ID автора сообщения
+)
+
 class PostNotFoundException(message: String) : Exception(message)
 class CommentNotFoundException(message: String) : RuntimeException(message)
 class NoteNotFoundException(message: String) : RuntimeException(message)
 class CommentAlreadyDeletedException(message: String) : RuntimeException(message)
+class ChatNotFoundException(message: String) : RuntimeException(message)
+class MessageNotFoundException(message: String) : RuntimeException(message)
