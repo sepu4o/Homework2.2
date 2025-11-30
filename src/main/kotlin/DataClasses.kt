@@ -79,7 +79,7 @@ data class Message(
     var text: String = "",
     var isDeleted: Boolean = false,
     var isRead: Boolean = false,
-    val authorId: Int = 0  
+    val authorId: Int = 0
 )
 
 class PostNotFoundException(message: String) : Exception(message)

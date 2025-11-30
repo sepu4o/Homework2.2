@@ -316,7 +316,8 @@ object ChatService {
     fun clear() {
         chats.clear()
         messages.clear()
-
+        nextChatId = 1
+        nextMessageId = 1
     }
 }
 

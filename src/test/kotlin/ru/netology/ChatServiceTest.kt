@@ -1,7 +1,6 @@
 package ru.netology
 
 import org.junit.Test
-
 import org.junit.Assert.*
 import org.junit.Before
 
@@ -51,6 +50,7 @@ class ChatServiceTest {
     @Test
     fun createMessage() {
         val result = ChatService.createMessage(2, 5, "Hello")
+        println("Создано сообщение: id=${result.id}, text=${result.text}")
         assertEquals(1, result.id)
     }
 
