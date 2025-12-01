@@ -202,7 +202,7 @@ object ChatService {
 
     // удалить чат
     fun deleteChat(chatId: Int): Boolean {
-        val chat = chats.find { it.id == chatId }
+        val chat = chats.asSequence().find { it.id == chatId }
             ?: throw ChatNotFoundException("Чат с id $chatId не найден")
         chat.isDeleted = true
         messages.forEach {
@@ -214,38 +214,36 @@ object ChatService {
 
     // получать список имеющихся чатов
     fun getChats(userId: Int): List<Chat> {
-        return chats.getActiveChats().filter {
+        return chats.asSequence().getActiveChats().filter {
             it.ownerId == userId || it.companionId == userId
-        }
-
+        }.toList()
     }
 
     //Получить список последних сообщений из чата
     fun getLastMessagesFromUserChats(userId: Int): List<String> {
-        return chats.getActiveChats()
+        return chats.asSequence().getActiveChats()
             .filter { it.ownerId == userId || it.companionId == userId }
             .map { chat ->
-                val lastMessage = messages.getActiveMessages()
+                val lastMessage = messages.asSequence().getActiveMessages()
                     .filter { it.chatId == chat.id }
                     .maxByOrNull { it.id }
                 lastMessage?.text ?: "нет сообщений"
-            }
+            }.toList()
     }
 
     //Получить список сообщений из чата, указав:ID собеседника
     fun getListMessagesIdUser(companionUserId: Int, currentUserId: Int, count: Int): List<Message> {
-        val chat = chats.getActiveChats()
+        val chat = chats.asSequence().getActiveChats()
             .find {
                 it.ownerId == currentUserId && it.companionId == companionUserId ||
                         it.ownerId == companionUserId && it.companionId == currentUserId
             }
-
-        if (chat != null) {
-            val chatMessages = messages.getActiveMessages().filter { it.chatId == chat.id }.take(count)
-            chatMessages.forEach { it.isRead = true }
-            return chatMessages
-        }
-        return listOf()
+        return chat?.let {
+            messages.asSequence().getActiveMessages()
+                .filter { it.chatId == chat.id }
+                .take(count).onEach { it.isRead = true }
+                .toList()
+        } ?: listOf()
     }
 
     //Создать новое сообщение
@@ -264,7 +262,7 @@ object ChatService {
 
     //редактировать сообщение
     fun editMessage(messageId: Int, newText: String): Boolean {
-        val message = messages.getActiveMessages().find { it.id == messageId }
+        val message = messages.asSequence().getActiveMessages().find { it.id == messageId }
         if (message == null) {
             throw MessageNotFoundException("Сообщение с таким id $messageId не найдено")
         }
@@ -275,7 +273,7 @@ object ChatService {
 
     //удалить сообщение
     fun deleteMessage(messageId: Int): Boolean {
-        val message = messages.getActiveMessages().find { it.id == messageId }
+        val message = messages.asSequence().getActiveMessages().find { it.id == messageId }
         if (message == null) {
             throw MessageNotFoundException("Сообщение с таким id $messageId не найдено")
         }
@@ -285,7 +283,7 @@ object ChatService {
 
     //найди или создай чат
     private fun getOrCreateChat(userId1: Int, userId2: Int): Chat {
-        val existingChat = chats.getActiveChats().find {
+        val existingChat = chats.asSequence().getActiveChats().find {
             it.ownerId == userId1 && it.companionId == userId2 ||
                     it.ownerId == userId2 && it.companionId == userId1
         }
@@ -308,8 +306,16 @@ object ChatService {
         return this.filter { !it.isDeleted }
     }
 
+    fun Sequence<Chat>.getActiveChats(): Sequence<Chat> {
+        return this.filter { !it.isDeleted }
+    }
+
     // функция для получения активных сообщений
     fun List<Message>.getActiveMessages(): List<Message> {
+        return this.filter { !it.isDeleted }
+    }
+
+    fun Sequence<Message>.getActiveMessages(): Sequence<Message> {
         return this.filter { !it.isDeleted }
     }
 
